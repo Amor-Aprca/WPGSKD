@@ -1,0 +1,63 @@
+decrypter: 'mp4decrypt'
+tag: ''
+tag_sd: ''
+
+arguments: {}
+
+aria2c:
+  file_allocation: 'prealloc'
+  
+
+cdm:
+  default: 'default'
+
+
+credentials:
+  HBOMax: 'email:password'
+  ADN: 'email:password'
+  Crunchyroll: 'email:password'
+  Netflix: 'email:password'
+  Crave: 'email:password'
+  Videoland: 'email:password'
+  DisneyPlus: 'email:password'
+  ParamountPlus: 'email:password'
+  All4: 'email:password'
+  RakutenTV: 'email:password'
+  BritBox: 'email:password'
+  TSUBURAYA: 'email:password'
+  DMMTV: 'email:password'
+
+directories:
+  temp: ''
+  downloads: ''
+
+headers:
+  User-Agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36'
+
+key_vaults:
+  - type: 'local'
+    name: 'Local'
+    path: '{data_dir}/key_store.db'
+
+output_template:
+  movies: '{title}.{year}.{quality}.{source}.WEB-DL.{audio}.{video}-{tag}'
+  series: '{title}.{season_episode}.{episode_name}.{quality}.{source}.WEB-DL.{audio}.{video}-{tag}'
+  use_last_audio: false
+
+profiles:
+  default: 'default'
+  TVer: false
+  AbemaTV: false
+  
+default_proxy_service: null  # Options: 'surfshark', 'nordvpn'
+
+proxies: {}
+
+nordvpn:
+    #username: ''
+    #password: ''
+
+surfshark:
+    #username: ''
+    #password: ''
+
