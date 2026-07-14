@@ -396,8 +396,10 @@ class Tracks:
 
     def select_audios(self, by_language=None, by_bitrate=None, with_atmos=False, with_descriptive=True, by_channels=None, by_codec=None):
         audios = self.audios
+        
         if not with_descriptive:
             audios = [x for x in audios if not x.descriptive]
+           
         if by_codec:
             target = by_codec.upper()
             c_audios = []
@@ -406,48 +408,70 @@ class Tracks:
                 std = "EC3" if any(k in raw for k in ["ec-3", "eac3"]) else "AC3" if "ac-3" in raw else "AAC" if "aac" in raw else raw.upper()
                 if std == target: c_audios.append(x)
             if c_audios: audios = c_audios
+            
         if with_atmos:
             atmos = [x for x in audios if x.atmos]
             if atmos: audios = atmos
+            
         if by_channels:
             ch_audios = [x for x in audios if x.channels == by_channels]
             if ch_audios: audios = ch_audios
+           
         if by_bitrate:
             audios = [x for x in audios if int(x.bitrate or 0) <= int(by_bitrate * 1000)]
+            
         if by_language:
-            filtered = []
-            for lang in by_language:
-                if str(lang) == "all":
-                    filtered.extend(audios)
-                elif str(lang) == "orig":
-                    orig_langs = [str(x.language).split("-")[0] for x in audios if x.is_original_lang]
-                    if not orig_langs:
-                        filtered.extend(audios)
-                    else:
-                        for x in audios:
-                            if str(x.language).split("-")[0] in orig_langs:
-                                filtered.append(x)
-                else:
-                    base_lang = str(lang).split("-")[0]
-                    for x in audios:
-                        if str(x.language).split("-")[0] == base_lang:
-                            filtered.append(x)
-            
-            seen_ids = set()
-            deduped = []
-            for x in filtered:
-                if x.id not in seen_ids:
-                    seen_ids.add(x.id)
-                    deduped.append(x)
-            
-            best_per_lang = {}
-            for x in deduped:
-                bitrate = float(x.bitrate or 0.0)
-                lang_key = str(x.language).split("-")[0]
-                if lang_key not in best_per_lang or bitrate > best_per_lang[lang_key][1]:
-                    best_per_lang[lang_key] = (x, bitrate)
+            if "all" in by_language:
+                pass #
+            else:
+                filtered_audios = []
+                orig_lang_audios = [x for x in audios if x.is_original_lang]
+                
+                for x in audios:
+                    lang_str = str(x.language).lower()
+                    base_lang = lang_str.split("-")[0]
                     
-            audios = [v[0] for v in best_per_lang.values()]
+                    is_match = False
+                    for req_lang in by_language:
+                        req_lang_str = str(req_lang).lower()
+                        
+                        if req_lang_str == "orig":
+                            if x in orig_lang_audios:
+                                is_match = True
+                                break
+                        elif lang_str == req_lang_str:
+                            is_match = True
+                            break
+                        elif "-" not in req_lang_str and base_lang == req_lang_str:
+                            is_match = True
+                            break
+                            
+                    if is_match:
+                        filtered_audios.append(x)
+                        
+                audios = filtered_audios
+                
+            best_tracks = {}
+            requested_langs_lower = [str(l).lower() for l in by_language]
+            
+            for x in audios:
+                lang_str = str(x.language).lower()
+                base_lang = lang_str.split("-")[0]
+                
+                key = lang_str
+                if lang_str not in requested_langs_lower:
+                    for req_lang in by_language:
+                        req_lang_str = str(req_lang).lower()
+                        if "-" not in req_lang_str and base_lang == req_lang_str:
+                            key = req_lang_str
+                            break
+                            
+                bitrate = float(x.bitrate or 0.0)
+                if key not in best_tracks or bitrate > best_tracks[key][1]:
+                    best_tracks[key] = (x, bitrate)
+                    
+            audios = list(best_tracks.values())
+            audios = [v[0] for v in audios]
             
         self.audios = audios
                       
