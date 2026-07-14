@@ -514,6 +514,11 @@ def _export_keys(export_dir, service_name, title, track, keys, export_name="", c
         
     tinfo["cbr_manifest_url"] = getattr(title, 'cbr_manifest_url', None)
     tinfo["cvbr_manifest_url"] = getattr(title, 'cvbr_manifest_url', None)
+   
+    manifest_url = getattr(title, 'manifest_url', None)
+    if not manifest_url and title.tracks.videos:
+        manifest_url = getattr(title.tracks.videos[0], 'manifest_url', None)
+    tinfo["manifest_url"] = manifest_url
     
     tinfo["tracks"] = tinfo.get("tracks", {})
     track_data = tinfo["tracks"].setdefault(str(track), {})
