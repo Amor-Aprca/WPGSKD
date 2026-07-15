@@ -69,6 +69,19 @@ class Track:
         except Exception:
             return False
 
+    def move(self, target_path: str) -> bool:
+        src = self.locate()
+        if not src or not os.path.exists(src):
+            return False
+        try:
+            import shutil
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            shutil.move(src, target_path)
+            self._location = target_path
+            return True
+        except Exception:
+            return False
+
     def delete(self):
         if self._location and os.path.exists(self._location):
             try:
