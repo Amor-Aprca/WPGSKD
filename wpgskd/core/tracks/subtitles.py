@@ -107,6 +107,25 @@ class SubtitleProcessor:
             log.info(f" + ASS/SSA subtitle kept in original format")
             return save_path
 
+        if codec.lower() == "ttml":
+            log.info(f" + Converting TTML to SRT using subby...")
+            try:
+                from subby import SMPTEConverter
+                converter = SMPTEConverter()
+                with open(save_path, "rb") as fd:
+                    srt_obj = converter.from_bytes(fd.read())
+                
+                srt_path = os.path.splitext(save_path)[0] + '.srt'
+                srt_obj.save(srt_path)
+                
+                if os.path.exists(save_path):
+                    os.unlink(save_path)
+                log.info(f" + Subtitle converted to SRT: {os.path.basename(srt_path)}")
+                return srt_path
+            except Exception as e:
+                log.warning(f" - TTML conversion failed: {e}")
+                return save_path
+
         with open(save_path, "rb") as fd:
             raw = fd.read()
 
