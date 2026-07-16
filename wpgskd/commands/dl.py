@@ -22,7 +22,7 @@ from wpgskd.core.tracks.audio import AudioTrack
 from wpgskd.core.tracks.tracks import TextTrack
 from wpgskd.core.vault import LocalVault
 from wpgskd.core.vaults import Vaults
-from wpgskd.utils.click import (AliasedGroup, ContextData, acodec_param,
+from wpgskd.commands.click_utils import (AliasedGroup, ContextData, acodec_param,
                                 channels_param, language_param, quality_param,
                                 range_param, vcodec_param, wanted_param)
 
@@ -307,18 +307,6 @@ def result(service, quality, vcodec, acodec, range_, wanted, alang, slang,
                     track.key = pk
                     all_content_keys.update(akeys)
                     log.info(f" + KEY: {pk[:32]}... (Resolved)")
-                    
-                    if export_arg is not None:
-                        import click as click_mod
-                        current_ctx = click_mod.get_current_context()
-                        _export_keys(
-                            directories.exports, service_name, title, track, akeys, 
-                            export_arg, 
-                            cli_title_id=current_ctx.parent.params.get("title", ""),
-                            quality=quality,
-                            vcodec=vcodec,
-                            range_=range_
-                        )
                 else:
                     log.error(" - No content key returned")
                     return
@@ -330,6 +318,16 @@ def result(service, quality, vcodec, acodec, range_, wanted, alang, slang,
             for track in title.tracks:
                 track.delete()
             continue
+            
+        if export_arg is not None:
+            _export_keys(
+                directories.exports, service_name, title, all_content_keys, 
+                export_arg, 
+                cli_title_id=getattr(service, "title", ""),
+                quality=quality,
+                vcodec=vcodec,
+                range_=range_
+            )
             
         if keys:
             continue
@@ -433,17 +431,36 @@ def _output_unmuxed(title: Title, logger):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if title.tracks.chapters:
-        loc = out_dir / f"{title.filename}_chapters.txt"
+        loc = out_dir / f"{title.parse_filename()}_chapters.txt"
         title.tracks.export_chapters(str(loc))
 
     for track in title.tracks:
         if not track.locate(): continue
+        
         fn = title.parse_filename()
-        if isinstance(track, (AudioTrack, TextTrack)):
-            fn += f".{track.language}"
-        ext = track.codec if isinstance(track, TextTrack) else Path(track.locate()).suffix[1:]
-        if isinstance(track, AudioTrack) and ext == "mp4": ext = "m4a"
-        track.move(str(out_dir / f"{fn}.{track.id}.{ext}"))
+        
+        if isinstance(track, TextTrack):
+            if track.language:
+                fn += f".{track.language}"
+            if track.forced:
+                fn += ".forced"
+            elif track.sdh:
+                fn += ".sdh"
+                
+            ext = "srt" if track.codec == "srt" else Path(track.locate()).suffix[1:].lower()
+            if ext not in ["srt", "vtt", "ttml", "ass"]:
+                ext = "srt"
+                
+        elif isinstance(track, AudioTrack):
+            if track.language:
+                fn += f".{track.language}"
+            ext = Path(track.locate()).suffix[1:].lower()
+            if ext == "mp4": ext = "m4a"
+        else:
+            ext = Path(track.locate()).suffix[1:].lower()
+            
+        target_path = str(out_dir / f"{fn}.{ext}")
+        track.move(target_path)
 
 def _output_muxed(title: Title, logger, audio_only, subs_only, service_name, sync_vat, no_sync_subs):
     try:
@@ -460,8 +477,9 @@ def _output_muxed(title: Title, logger, audio_only, subs_only, service_name, syn
             out_dir = out_dir / title.parse_filename(folder=True)
         out_dir.mkdir(parents=True, exist_ok=True)
 
+        base_fn = title.parse_filename()
         ext = "mka" if audio_only else "mks" if subs_only else "mkv"
-        target_path = out_dir / f"{title.parse_filename()}.{ext}"
+        target_path = out_dir / f"{base_fn}.{ext}"
         
         import shutil
         shutil.move(muxed_location, str(target_path))
@@ -475,46 +493,59 @@ def _output_muxed(title: Title, logger, audio_only, subs_only, service_name, syn
             try: track.delete()
             except: pass
         if title.tracks.chapters:
-            try: os.unlink(filenames.chapters.format(filename=title.filename))
+            try: os.unlink(filenames.chapters.format(filename=base_fn))
             except: pass
             
     except Exception as e:
         logger.error(f" - Muxing failed: {e}")
-
-def _export_keys(export_dir, service_name, title, track, keys, export_name="", cli_title_id="", quality=None, vcodec=None, range_=None):
+        
+def _export_keys(export_dir, service_name, title, all_keys, export_name="", cli_title_id="", quality=None, vcodec=None, range_=None):
     import json
+    from pathlib import Path
+    from wpgskd.core.tracks.tracks import TextTrack, Track
+    
     export_dir = Path(export_dir)
     export_dir.mkdir(parents=True, exist_ok=True)
-    
+
     if export_name:
         if not export_name.endswith(".json"):
             export_name += ".json"
         export_path = export_dir / export_name
     else:
+        parts = [service_name]
+        if cli_title_id:
+            parts.append(cli_title_id)
         if isinstance(quality, int):
-            q_str = f"{quality}P"
+            parts.append(f"{quality}P")
         elif quality:
-            q_str = str(quality).upper()
-        else:
-            q_str = "ALL"
+            parts.append(str(quality).upper())
+        if vcodec:
+            parts.append(vcodec.upper())
+        if range_:
+            parts.append(range_.upper())
             
-        v_str = vcodec.upper() if vcodec else "ALL"
-        r_str = range_.upper() if range_ else "ALL"
-        
-        export_file = f"{service_name}_{cli_title_id}_{q_str}_{v_str}_{r_str}.json"
+        export_file = "_".join(parts) + ".json"
         export_path = export_dir / export_file
-    
+        
     doc = {}
     if export_path.is_file():
         try: 
             doc = json.loads(export_path.read_text(encoding="utf-8"))
         except: pass
-        
+            
     titles_dict = doc.setdefault("titles", {})
     tinfo = titles_dict.setdefault(str(title.id), {})
     
+    display_name = title.name
+    if title.type == Title.Types.TV:
+        s_str = f"S{int(title.season):02}" if isinstance(title.season, int) else f"S{title.season}"
+        e_str = f"E{int(title.episode):02}" if isinstance(title.episode, int) else f"E{title.episode}"
+        display_name = f"{title.name} {s_str}{e_str}"
+        if title.episode_name:
+            display_name += f" - {title.episode_name}"
+            
     tinfo["title_id"] = title.id
-    tinfo["title_name"] = title.name
+    tinfo["title_name"] = display_name
     tinfo["type"] = "TV" if title.type == Title.Types.TV else "MOVIE"
     tinfo["year"] = title.year
     if title.type == Title.Types.TV:
@@ -523,16 +554,32 @@ def _export_keys(export_dir, service_name, title, track, keys, export_name="", c
         
     tinfo["cbr_manifest_url"] = getattr(title, 'cbr_manifest_url', None)
     tinfo["cvbr_manifest_url"] = getattr(title, 'cvbr_manifest_url', None)
-   
+    
     manifest_url = getattr(title, 'manifest_url', None)
     if not manifest_url and title.tracks.videos:
         manifest_url = getattr(title.tracks.videos[0], 'manifest_url', None)
     tinfo["manifest_url"] = manifest_url
     
     tinfo["tracks"] = tinfo.get("tracks", {})
-    track_data = tinfo["tracks"].setdefault(str(track), {})
-    k_data = track_data.setdefault("keys", {})
-    for kid, key in keys.items():
-        k_data[kid] = key
+
+    for track in title.tracks:
+        track_str = str(track)
+        track_data = tinfo["tracks"].setdefault(track_str, {})
         
+        k_data = track_data.setdefault("keys", {})
+        
+        if track.encrypted:
+            kid = track.kid.lower().replace("-", "") if track.kid else None
+            if kid and kid in all_keys:
+                k_data[kid] = all_keys[kid]
+            elif track.key and kid:
+                k_data[kid] = track.key.lower()
+        else:
+            if not k_data:
+                k_data["null"] = "null"
+                
+        if isinstance(track, TextTrack):
+            url = track.url[0] if isinstance(track.url, list) else track.url
+            track_data["url"] = url
+
     export_path.write_text(json.dumps(doc, indent=4, ensure_ascii=False), encoding="utf-8")
