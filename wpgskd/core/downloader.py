@@ -1,3 +1,4 @@
+import re
 import os
 import sys
 import shutil
@@ -22,6 +23,18 @@ class Downloader:
 
     def download(self, track: Track, out_dir: str, name: str = None, headers: dict = None, 
                  proxy: str = None, title_ref: Any = None, all_keys: dict = None):
+
+        if track.__class__.__name__ == "TextTrack" and isinstance(track.url, list):
+            os.makedirs(out_dir, exist_ok=True)
+            re_name = (name or "{type}_{id}_{enc}").format(
+                type=track.__class__.__name__,
+                id=track.id,
+                enc="dec" if not track.encrypted else "enc"
+            )
+            save_path = os.path.join(out_dir, self._get_filename(track, re_name))
+            self._download_and_merge_vtt(track.url, save_path, headers, proxy)
+            track._location = save_path
+            return
 
         if os.path.isfile(out_dir):
             raise ValueError("Path must be to a directory and not to a file")
@@ -116,6 +129,47 @@ class Downloader:
             return f"{re_name}.m4a"
         else:
             return f"{re_name}.mp4"
+
+    def _download_and_merge_vtt(self, urls: list, save_path: str, headers: dict, proxy: str):
+        log.info(f"Downloading and merging {len(urls)} subtitle segments...")
+        merged_vtt = ""
+        
+        req_headers = headers if headers else {}
+        
+        proxies = None
+        if proxy:
+            proxies = {"http": proxy, "https": proxy}
+
+        for i, url in enumerate(urls):
+            try:
+                res = self.session.get(url, headers=req_headers, proxies=proxies, timeout=30)
+                res.raise_for_status()
+                content = res.content.decode('utf-8', errors='ignore')
+                
+                lines = content.splitlines()
+                current_vtt = ""
+                for line in lines:
+                    if line.strip() == "WEBVTT" and i > 0:
+                        continue
+                    if line.startswith("X-TIMESTAMP-MAP"):
+                        continue
+                    current_vtt += line + "\n"
+
+                if i == 0:
+                    merged_vtt = current_vtt
+                else:
+                    if current_vtt.startswith("\n"):
+                        current_vtt = current_vtt[1:]
+                    merged_vtt += current_vtt
+                    
+            except Exception as e:
+                log.error(f" - Failed to download subtitle segment {i}: {e}")
+                raise
+
+        merged_vtt = re.sub(r'\n{3,}', '\n\n', merged_vtt).strip() + "\n"
+        
+        with open(save_path, "w", encoding="utf-8") as f:
+            f.write(merged_vtt)   
 
     def _download_abematv(self, track: Track, out_dir: str, re_name: str):
         base_name = "VideoTrack_master_enc"
