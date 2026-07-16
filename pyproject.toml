@@ -10,7 +10,6 @@ authors = ["WPGSKD Contributors"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-subby = {path = "./scripts/subby", develop = true}
 requests = {extras = ["socks"], version = "2.32.5"}
 curl-cffi = "^0.6.0"
 httpx = "^0.23.0"
@@ -48,6 +47,9 @@ pywidevine = "^1.8.0"
 pyplayready = {git = "https://git.gay/ready-dl/pyplayready.git"}
 numpy = "^1.26.0"
 xmltodict = "^1.0.4"
+beautifulsoup4 = "^4.11.2"
+tinycss = "^0.4"
+srt = "^3.5.3"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^3.8.4"
@@ -70,7 +72,7 @@ wp = 'wpgskd.wpgskd:main'
 [tool.isort]
 line_length = 120
 classes = ['CTV', 'FPS', 'IO', 'iTunes', 'MP4', 'TVNOW']
-extend_skip = ['scripts/pywidevine', 'scripts/subby', 'wpgskd/vendor']
+extend_skip = ['scripts/pywidevine', 'wpgskd/vendor']
 
 [tool.ruff]
 line-length = 120
@@ -83,7 +85,6 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/pywidevine/**" = ["ALL"]
-"scripts/subby/**" = ["ALL"]
 "wpgskd/vendor/**" = ["ALL"]
 "tests/**" = ["B011"]
 
@@ -100,12 +101,11 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 exclude = [
     "scripts/pywidevine/",
-    "scripts/subby/",
     "wpgskd/vendor/",
 ]
 
 [tool.bandit]
-exclude_dirs = ["tests", "scripts/pywidevine", "scripts/subby", "wpgskd/vendor"]
+exclude_dirs = ["tests", "scripts/pywidevine", "wpgskd/vendor"]
 skips = [
     "B101",
     "B324",
