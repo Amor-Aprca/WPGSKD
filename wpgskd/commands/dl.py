@@ -370,14 +370,14 @@ def result(service, quality, vcodec, acodec, range_, wanted, alang, slang,
                 except Exception as e:
                     log.error(f" - Decryption failed: {e}")
 
-        if isinstance(track, TextTrack) and track.locate():
-            log.info("Converting subtitle to SRT...")
-            try:
-                track.convert_to_srt(strip_sdh=False)
-                if track.codec == "srt":
-                    log.info(" + Converted to SRT")
-            except Exception as e:
-                log.warning(f" - Subtitle conversion failed: {e}")
+            if isinstance(track, TextTrack) and track.locate():
+                log.info("Converting subtitle to SRT...")
+                try:
+                    track.convert_to_srt(strip_sdh=False)
+                    if track.codec == "srt":
+                        log.info(" + Converted to SRT")
+                except Exception as e:
+                    log.warning(f" - Subtitle conversion failed: {e}")
 
         if range_ == "DV+HDR":
             try:
