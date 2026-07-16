@@ -7,7 +7,7 @@ from typing import Optional
 
 import requests
 
-from wpgskd.utils.AtomicSQL import AtomicSQL
+from wpgskd.core.atomic_sql import AtomicSQL
 
 log = logging.getLogger("Vault")
 

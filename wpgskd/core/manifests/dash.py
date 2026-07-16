@@ -18,9 +18,9 @@ from langcodes.tag_parser import LanguageTagError
 
 from wpgskd.config import config, directories
 from wpgskd.core.tracks import AudioTrack, TextTrack, Track, Tracks, VideoTrack
-from wpgskd.utils import Cdm
-from wpgskd.utils.io import aria2c
-from wpgskd.utils.xml import load_xml
+from wpgskd.core.utilities import Cdm
+from wpgskd.core.io import aria2c
+from wpgskd.core.xml import load_xml
 from wpgskd.vendor.pymp4.parser import Box
 
 log = logging.getLogger("MPD")

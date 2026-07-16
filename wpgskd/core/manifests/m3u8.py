@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple, Any
 import requests
 import m3u8
 
-from wpgskd.utils import Cdm
+from wpgskd.core.utilities import Cdm
 from wpgskd.vendor.pymp4.parser import Box
 from wpgskd.constants import EncryptionScheme
 

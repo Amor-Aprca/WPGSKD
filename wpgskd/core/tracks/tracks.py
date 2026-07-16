@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Optional, List, Any, Iterator
 from langcodes import Language
 
-from wpgskd.utils import is_close_match, get_closest_match
+from wpgskd.core.utilities import is_close_match, get_closest_match
 
 log = logging.getLogger("Tracks")
 
@@ -223,6 +223,17 @@ class TextTrack(Track):
             name += f" ({flag})" if name else flag
         return name or None
 
+    def __str__(self):
+        parts = ["├─ SUB", self.codec or "vtt", str(self.language)]
+        flags = []
+        if getattr(self, 'is_original_lang', False): flags.append("orig")
+        if self.forced: flags.append("Forced")
+        if self.sdh: flags.append("SDH")
+        if self.cc: flags.append("CC")
+        if flags:
+            parts.append(" ".join(flags))
+        return " | ".join(parts)
+
     def convert_to_srt(self, strip_sdh: bool = True) -> Optional[str]:
         from wpgskd.core.tracks.subtitles import SubtitleProcessor
         if not self._location:
@@ -237,7 +248,6 @@ class TextTrack(Track):
             self._location = new_path
             self.codec = "srt"
         return self._location
-
 
 class Tracks:
     def __init__(self, *tracks: Track):

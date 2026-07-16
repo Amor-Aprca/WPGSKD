@@ -61,10 +61,79 @@ class Title:
         return base.replace(" ", ".")
 
     def parse_filename(self, media_info=None, folder: bool = False) -> str:
+        from wpgskd.core.utilities import sanitize_filename
+        from wpgskd.config import config
+
         if folder and self.type == Title.Types.TV:
             s_str = f"S{int(self.season):02}" if isinstance(self.season, int) else f"S{self.season}"
-            return f"{self.name} {s_str}"
-        return self.filename
+            return sanitize_filename(f"{self.name} {s_str}")
+
+        template_str = None
+        if hasattr(config, 'output_template'):
+            ot = config.output_template
+            if isinstance(ot, dict):
+                template_str = ot.get('movies') if self.type == Title.Types.MOVIE else ot.get('series')
+            elif hasattr(ot, 'movies'):
+                template_str = ot.movies if self.type == Title.Types.MOVIE else ot.series
+
+        if not template_str:
+            # Fallback if config not loaded properly
+            if self.type == Title.Types.MOVIE:
+                base = self.name
+                if self.year: base += f" ({self.year})"
+            elif self.type == Title.Types.TV:
+                s_str = f"S{int(self.season):02}" if isinstance(self.season, int) else f"S{self.season}"
+                e_str = f"E{int(self.episode):02}" if isinstance(self.episode, int) else f"E{self.episode}"
+                base = f"{self.name}.{s_str}{e_str}"
+            else:
+                base = self.name
+            return sanitize_filename(base.replace(" ", "."))
+
+        s_str = e_str = season_episode = ""
+        if self.type == Title.Types.TV:
+            s_str = f"S{int(self.season):02}" if isinstance(self.season, int) else f"S{self.season}"
+            e_str = f"E{int(self.episode):02}" if isinstance(self.episode, int) else f"E{self.episode}"
+            season_episode = f"{s_str}{e_str}"
+
+        quality = ""
+        v_codec = ""
+        a_codec = ""
+        
+        if hasattr(self, 'tracks') and self.tracks:
+            if self.tracks.videos:
+                v = self.tracks.videos[0]
+                quality = f"{v.height}p" if v.height else ""
+                v_codec = v.get_codec_display().replace("H.", "H").replace(" ", "")
+            if self.tracks.audios:
+                a = self.tracks.audios[0]
+                a_codec = a.get_codec_display().replace(" ", "").replace("DD+", "DDP")
+                if getattr(a, 'atmos', False) and "Atmos" not in a_codec:
+                    a_codec += "Atmos"
+
+        tag = getattr(config, 'tag', '') or ""
+        
+        replacements = {
+            "{title}": self.name or "Unknown",
+            "{year}": str(self.year) if self.year else "",
+            "{season_episode}": season_episode,
+            "{episode_name}": self.episode_name or "",
+            "{quality}": quality,
+            "{source}": self.source or "",
+            "{audio}": a_codec,
+            "{video}": v_codec,
+            "{tag}": tag
+        }
+
+        base = template_str
+        for k, v in replacements.items():
+            base = base.replace(k, v)
+
+        base = re.sub(r'\.+', '.', base)
+        base = base.replace(".-", "-")
+        if base.endswith("-"): base = base[:-1]
+        base = base.strip(". ")
+
+        return sanitize_filename(base)
 
 
 class Titles(list):

@@ -6,7 +6,7 @@ import m3u8
 
 from wpgskd.core.tracks import AudioTrack, TextTrack, Track, Tracks, VideoTrack
 from wpgskd.constants import EncryptionScheme
-from wpgskd.utils import Cdm
+from wpgskd.core.utilities import Cdm
 from wpgskd.vendor.pymp4.parser import Box
 
 log = logging.getLogger("HLSParser")

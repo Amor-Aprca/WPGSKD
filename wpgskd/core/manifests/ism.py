@@ -10,8 +10,8 @@ from langcodes.tag_parser import LanguageTagError
 
 from wpgskd.config import directories
 from wpgskd.core.tracks import AudioTrack, TextTrack, Track, Tracks, VideoTrack
-from wpgskd.utils.io import aria2c
-from wpgskd.utils.xml import load_xml
+from wpgskd.core.io import aria2c
+from wpgskd.core.xml import load_xml
 
 log = logging.getLogger("ISMParser")
 

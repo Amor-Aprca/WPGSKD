@@ -11,7 +11,7 @@ import requests
 
 from wpgskd.constants import EncryptionScheme
 from wpgskd.core.tracks.tracks import Track
-from wpgskd.utils.io import aria2c, m3u8re
+from wpgskd.core.io import aria2c, m3u8re
 
 log = logging.getLogger("Downloader")
 
@@ -100,14 +100,18 @@ class Downloader:
 
     def _get_filename(self, track: Track, re_name: str) -> str:
         is_ass = hasattr(track, 'codec') and track.codec and track.codec.lower() in ['ass', 'ssa']
-        is_wvtt = hasattr(track, 'codec') and track.codec and track.codec.lower() == 'wvtt'
 
         if is_ass:
             return f"{re_name}.ass"
-        elif is_wvtt:
-            return f"{re_name}.vtt"
         elif track.__class__.__name__ == "TextTrack":
-            return f"{re_name}.vtt"
+            ext = "vtt"
+            if hasattr(track, 'codec') and track.codec:
+                c = track.codec.lower()
+                if c in ["ttml", "stpp", "dfxp"]:
+                    ext = "ttml"
+                elif c == "srt":
+                    ext = "srt"
+            return f"{re_name}.{ext}"
         elif track.__class__.__name__ == "AudioTrack" and track.source in ["iT", "ATVP", "TVer", "NHKPlus"]:
             return f"{re_name}.m4a"
         else:

@@ -13,7 +13,7 @@ from io import TextIOWrapper
 from wpgskd.config import directories, filenames
 from wpgskd.core.tracks.tracks import Tracks, TextTrack
 from wpgskd.core.tracks.title import Title
-from wpgskd.utils import is_close_match
+from wpgskd.core.utilities import is_close_match
 from wpgskd.constants import LANGUAGE_MUX_MAP
 
 log = logging.getLogger("Muxer")
