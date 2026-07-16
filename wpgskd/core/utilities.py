@@ -83,7 +83,10 @@ def sanitize_filename(filename: str) -> str:
     filename = filename.replace(":", " - ")
     filename = re.sub(r'[\*\?\"\<\>\|]', "", filename)
     filename = filename.replace("&", " and ")
-    filename = re.sub(r"[. ]{2,}", ".", filename)
+    filename = re.sub(r'\.+', ".", filename)      
+    filename = re.sub(r'\s+\.', ".", filename)     
+    filename = re.sub(r'\.\s+', ".", filename)     
+    
     filename = filename.strip(". ")
     return filename
 
