@@ -120,6 +120,19 @@ def parse(master, source=None, session=None):
             # === AUDIO ===
             if x.type == "AUDIO" and x.uri:
                 channels = x.channels if hasattr(x, 'channels') else None
+                group_id = x.group_id if hasattr(x, 'group_id') else None
+                bitrate = 0
+                
+                if group_id:
+                    br_match = re.search(r'_(\d+)$', group_id)
+                    if br_match:
+                        bitrate = int(br_match.group(1)) * 1000
+                    
+                    if not channels:
+                        ch_match = re.search(r'(\d+)ch', group_id)
+                        if ch_match:
+                            channels = f"{ch_match.group(1)}.0"
+
                 characteristics = x.characteristics or "" if hasattr(x, 'characteristics') else ""
 
                 tracks_obj.add(AudioTrack(
@@ -128,7 +141,7 @@ def parse(master, source=None, session=None):
                     url=("" if re.match("^https?://", x.uri) else x.base_uri) + x.uri,
                     codec=_safe_get_audio_codec(x),
                     language=x.language,
-                    bitrate=0,
+                    bitrate=bitrate,
                     channels=channels,
                     atmos=(channels or "").endswith("/JOC"),
                     descriptive="public.accessibility.describes-video" in characteristics,
@@ -142,6 +155,10 @@ def parse(master, source=None, session=None):
             elif x.type == "SUBTITLES" and x.uri:
                 forced = x.forced == "YES" if hasattr(x, 'forced') else False
                 characteristics = x.characteristics or "" if hasattr(x, 'characteristics') else ""
+                name = x.name if hasattr(x, 'name') else ""
+                group_id = x.group_id if hasattr(x, 'group_id') else ""
+                
+                is_cc = "cc" in name.lower() or "cc" in group_id.lower()
 
                 tracks_obj.add(TextTrack(
                     id_=md5(str(x).encode()).hexdigest()[0:6],
@@ -150,7 +167,7 @@ def parse(master, source=None, session=None):
                     codec="vtt",
                     language=x.language,
                     forced=forced,
-                    sdh="public.accessibility.describes-music-and-sound" in characteristics,
+                    sdh="public.accessibility.describes-music-and-sound" in characteristics or is_cc,
                     descriptor=Track.Descriptor.M3U,
                     encryption_scheme=default_scheme,
                     encrypted=has_encryption,
