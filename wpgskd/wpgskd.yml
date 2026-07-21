@@ -39,6 +39,11 @@ key_vaults:
     name: 'Local'
     path: '{data_dir}/key_store.db'
 
+  - type: 'httpapi'
+    name: vault
+    host: https://drmwpvault.xin
+    password:
+
 output_template:
   movies: '{title}.{year}.{quality}.{source}.WEB-DL.{audio}.{video}-{tag}'
   series: '{title}.{season_episode}.{episode_name}.{quality}.{source}.WEB-DL.{audio}.{video}-{tag}'
