@@ -206,6 +206,43 @@ def parse(master, source=None, session=None):
                     a.duration = total_duration
                     if a.bitrate:
                         a.size = int((float(a.bitrate) * total_duration) / 8)
+
+            if not has_encryption and sub_m3u8.keys:
+                has_encryption = True
+                for key in sub_m3u8.keys:
+                    if key.method and key.method.upper() in ("SAMPLE-AES", "SAMPLE-AES-CTR"):
+                        keyformat = key.keyformat
+                        if keyformat and "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed" in keyformat:
+                            if not pssh and key.uri and "base64," in key.uri:
+                                try:
+                                    pssh_raw = key.uri.split("base64,")[-1]
+                                    pssh_data = base64.b64decode(pssh_raw)
+                                    try:
+                                        pssh = Box.parse(pssh_data)
+                                    except Exception:
+                                        pssh = Box.parse(Box.build(dict(
+                                            type=b"pssh", version=0, flags=0, system_ID=Cdm.uuid, init_data=pssh_data
+                                        )))
+                                except Exception as e:
+                                    log.debug(f"Failed to decode Widevine PSSH from sub-manifest: {e}")
+                        
+                        if not pr_pssh and keyformat and "9a04f079-9840-4286-ab92-e65be0885f95" in keyformat:
+                            if key.uri and "base64," in key.uri:
+                                pr_pssh = key.uri.split("base64,")[-1]
+
+                if has_encryption:
+                    default_scheme = EncryptionScheme.WIDEVINE if pssh else EncryptionScheme.PLAYREADY if pr_pssh else EncryptionScheme.SAMPLE_AES
+                    for track in tracks_obj:
+                        track.encrypted = True
+                        track.encryption_scheme = default_scheme
+                        if isinstance(track.extra, dict):
+                            if pssh and not track.extra.get("master_pssh"):
+                                track.extra["master_pssh"] = pssh
+                            if pr_pssh and not track.extra.get("master_pr_pssh"):
+                                track.extra["master_pr_pssh"] = pr_pssh
+                        else:
+                            track.extra = {"master_pssh": pssh, "master_pr_pssh": pr_pssh}
+                            
         except Exception as e:
             log.warning(f"Failed to probe HLS sub-manifest for duration/fps: {e}")
 
