@@ -352,6 +352,8 @@ class Tracks:
                     std = "H264"
                 elif "av01" in raw or "dav1" in raw:
                     std = "AV1"
+                elif "vp09" in raw or raw == "vp9":
+                    std = "VP9"
                 else:
                     std = raw.upper()
                 if std == target: c_videos.append(x)
