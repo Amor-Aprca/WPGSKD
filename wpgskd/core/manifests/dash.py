@@ -218,7 +218,6 @@ def _parse_mpd(root, url, source, session):
                                     break
 
                     if not kid and content_type == "audio":
-                        # 从 Period 级别直接找第一个带 default_KID 的保护信息，避免 O(N²) 嵌套循环
                         for protection in period.findall(".//ContentProtection"):
                             if protection.get("schemeIdUri") == "urn:mpeg:dash:mp4protection:2011":
                                 kid_val = protection.get("{urn:mpeg:cenc:2013}default_KID")
@@ -229,9 +228,7 @@ def _parse_mpd(root, url, source, session):
 
                     for protection in protections:
                         if "9a04f079-9840-4286-ab92-e65be0885f95" in protection.get("schemeIdUri", "").lower():
-                            pr_pssh = (protection.findtext("pro")
-                                       if source in ["STAN", "RKTN", "CR"]
-                                       else protection.findtext("pssh"))
+                            pr_pssh = protection.findtext("pro") or protection.findtext("pssh")
                         if (protection.get("schemeIdUri") or "").lower() != Cdm.urn:
                             continue
                         pssh = protection.findtext("pssh")
