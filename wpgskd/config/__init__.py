@@ -8,7 +8,7 @@ import yaml
 from appdirs import AppDirs
 from requests.utils import CaseInsensitiveDict
 
-from wpgskd.utils.collections import merge_dict
+from wpgskd.core.collections import merge_dict
 
 class Directories:
     def __init__(self):
