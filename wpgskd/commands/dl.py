@@ -129,7 +129,7 @@ def dl(ctx, profile, cdm, *_, **__):
         cdm_prov = CdmProvider(
             cdm_name=cdm_name,
             device_dir=directories.devices,
-            cdm_api_config=config.cdm_api
+            cdm_api_config=getattr(config, 'cdm_api', None)
         )
         cdm_prov.log_info()
     except Exception as e:
