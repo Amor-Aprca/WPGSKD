@@ -60,8 +60,8 @@ import os
 import html
 from http.cookiejar import MozillaCookieJar
 from wpgskd.config import filenames, directories
-from wpgskd.utils.io import load_yaml
-from wpgskd.utils.collections import merge_dict
+from wpgskd.core.io import load_yaml
+from wpgskd.core.collections import merge_dict
 from wpgskd.core.credential import Credential
 
 def get_service_config(service: str) -> dict:
