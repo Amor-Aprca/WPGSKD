@@ -12,9 +12,9 @@ from requests.adapters import HTTPAdapter, Retry
 import random
 
 from wpgskd import config as config_module 
-from wpgskd.utils import try_get
-from wpgskd.utils.collections import as_list, merge_dict
-from wpgskd.utils.io import get_ip_info
+from wpgskd.core.utilities import try_get
+from wpgskd.core.collections import as_list, merge_dict
+from wpgskd.core.io import get_ip_info
 
 
 class BaseService(ABC):
