@@ -12,10 +12,15 @@ from wpgskd.core.cdm.detect import detect_cdm_type
 log = logging.getLogger("CDMLoader")
 
 class CdmProvider:
-    def __init__(self, cdm_name: str, device_dir: Path, cdm_api_config: Optional[Dict[str, Any]] = None):
+    def __init__(self, cdm_name: str, device_dir: Path, cdm_api_config: Optional[Any] = None):
         self.cdm_name = cdm_name
         self.device_dir = device_dir
-        self.cdm_api_config = cdm_api_config or {}
+        
+        if isinstance(cdm_api_config, list):
+            self.cdm_api_config = {item.get('name'): item for item in cdm_api_config if isinstance(item, dict) and item.get('name')}
+        else:
+            self.cdm_api_config = cdm_api_config or {}
+            
         self._cdm_instance: Optional[BaseCdm] = None
 
     @property
