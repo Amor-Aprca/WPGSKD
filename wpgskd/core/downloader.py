@@ -16,12 +16,52 @@ from wpgskd.core.io import aria2c, m3u8re
 
 log = logging.getLogger("Downloader")
 
+_MEDIA_EXTS = (".mp4", ".m4a", ".aac", ".mka", ".mkv", ".ts",
+               ".ac3", ".ec3", ".vtt", ".srt", ".ttml", ".ass")
+
+
 class Downloader:
 
     def __init__(self, session: requests.Session):
         self.session = session
 
-    def download(self, track: Track, out_dir: str, name: str = None, headers: dict = None, 
+    def _resolve_output(self, out_dir, save_name: str) -> Optional[str]:
+        """Return the real media file N_m3u8DL-RE produced for ``save_name``."""
+        out_dir = Path(out_dir)
+        matches = []
+        for p in out_dir.glob(f"{save_name}*"):
+            if not p.is_file():
+                continue
+            if p.suffix.lower() not in _MEDIA_EXTS:
+                continue
+            try:
+                size = p.stat().st_size
+            except OSError:
+                continue
+            if size <= 0:
+                continue
+            matches.append((size, p))
+        if not matches:
+            return None
+        # largest file wins (avoids picking a stale/partial sibling)
+        matches.sort(key=lambda x: x[0], reverse=True)
+        return str(matches[0][1])
+
+    def _set_resolved_location(self, track, save_path: str) -> bool:
+        """Resolve the real output file and set ``track._location``.
+
+        Returns True if a real file was found, else False (caller may then
+        fall back to the predicted ``save_path``)."""
+        out_dir = Path(save_path).parent
+        stem = Path(save_path).stem
+        resolved = self._resolve_output(out_dir, stem)
+        if resolved:
+            track._location = resolved
+            return True
+        log.warning(f" - N_m3u8DL-RE produced no output matching '{stem}*' in {out_dir}")
+        return False
+
+    def download(self, track: Track, out_dir: str, name: str = None, headers: dict = None,
                  proxy: str = None, title_ref: Any = None, all_keys: dict = None):
 
         if track.__class__.__name__ == "TextTrack" and isinstance(track.url, list):
@@ -63,7 +103,8 @@ class Downloader:
         if getattr(track, 'manifest_url', None) and getattr(track, 'mpd_representation_id', None):
             save_path = os.path.join(out_dir, self._get_filename(track, re_name))
             self._download_dash_manifest(track, save_path, headers, proxy)
-            track._location = save_path
+            if not self._set_resolved_location(track, save_path):
+                track._location = save_path  # last-resort fallback
             return
 
         if track.descriptor == Track.Descriptor.ISM or getattr(track, 'smooth', False):
@@ -73,20 +114,23 @@ class Downloader:
         if track.descriptor == Track.Descriptor.M3U and track.encryption_scheme == EncryptionScheme.AES_128:
             save_path = os.path.join(out_dir, self._get_filename(track, re_name))
             self._download_m3u8(track, save_path, headers, proxy)
-            track._location = save_path
+            if not self._set_resolved_location(track, save_path):
+                track._location = save_path
             return
 
         first_url = track.url[0] if isinstance(track.url, list) else track.url
         if track.descriptor == Track.Descriptor.M3U and isinstance(first_url, str) and ".m3u8" in first_url:
             save_path = os.path.join(out_dir, self._get_filename(track, re_name))
             self._download_m3u8(track, save_path, headers, proxy)
-            track._location = save_path
+            if not self._set_resolved_location(track, save_path):
+                track._location = save_path
             return
 
         if isinstance(track.url, list) and ".m3u8" in first_url:
             save_path = os.path.join(out_dir, self._get_filename(track, re_name))
             self._download_m3u8(track, save_path, headers, proxy)
-            track._location = save_path
+            if not self._set_resolved_location(track, save_path):
+                track._location = save_path
             return
 
         save_path = os.path.join(out_dir, self._get_filename(track, re_name))
@@ -104,7 +148,8 @@ class Downloader:
                 log.warning(f"aria2c download failed. Attempting fallback with N_m3u8DL-RE...")
                 try:
                     self._fallback_n_m3u8dl_re(track, dash_url, save_path, headers, proxy, all_keys)
-                    track._location = save_path
+                    if not self._set_resolved_location(track, save_path):
+                        track._location = save_path
                 except Exception as fallback_e:
                     log.error(f"Fallback download with N_m3u8DL-RE also failed: {fallback_e}")
                     raise e
@@ -133,9 +178,9 @@ class Downloader:
     def _download_and_merge_vtt(self, urls: list, save_path: str, headers: dict, proxy: str):
         log.info(f"Downloading and merging {len(urls)} subtitle segments...")
         merged_vtt = ""
-        
+
         req_headers = headers if headers else {}
-        
+
         proxies = None
         if proxy:
             proxies = {"http": proxy, "https": proxy}
@@ -145,7 +190,7 @@ class Downloader:
                 res = self.session.get(url, headers=req_headers, proxies=proxies, timeout=30)
                 res.raise_for_status()
                 content = res.content.decode('utf-8', errors='ignore')
-                
+
                 lines = content.splitlines()
                 current_vtt = ""
                 for line in lines:
@@ -161,15 +206,15 @@ class Downloader:
                     if current_vtt.startswith("\n"):
                         current_vtt = current_vtt[1:]
                     merged_vtt += current_vtt
-                    
+
             except Exception as e:
                 log.error(f" - Failed to download subtitle segment {i}: {e}")
                 raise
 
         merged_vtt = re.sub(r'\n{3,}', '\n\n', merged_vtt).strip() + "\n"
-        
+
         with open(save_path, "w", encoding="utf-8") as f:
-            f.write(merged_vtt)   
+            f.write(merged_vtt)
 
     def _download_abematv(self, track: Track, out_dir: str, re_name: str):
         base_name = "VideoTrack_master_enc"
@@ -202,7 +247,7 @@ class Downloader:
 
     def _download_m3u8(self, track: Track, save_path: str, headers: dict, proxy: str):
         log.info(f"Downloading HLS stream using N_m3u8DL-RE...")
-        
+
         key = None
         if track.encryption_scheme == EncryptionScheme.AES_128:
             pass
@@ -223,6 +268,7 @@ class Downloader:
 
     def _download_dash_manifest(self, track: Track, save_path: str, headers: dict, proxy: str):
         log.info(f"Downloading DASH manifest stream using N_m3u8DL-RE...")
+
         executable = shutil.which("N_m3u8DL-RE") or shutil.which("m3u8re")
         if not executable:
             raise EnvironmentError("N_m3u8DL-RE executable not found...")
@@ -277,8 +323,8 @@ class Downloader:
 
         first_url = track.url[0] if isinstance(track.url, list) else track.url
         ism_url = first_url.rsplit('/', 1)[0] + "/manifest"
-        ism_url = ism_url.split('?')[0] 
-        
+        ism_url = ism_url.split('?')[0]
+
         cmd = [
             executable,
             ism_url,
@@ -288,7 +334,7 @@ class Downloader:
             "--auto-subtitle-fix", "True",
             "--log-level", "ERROR",
         ]
-        
+
         if track.needs_proxy and proxy:
             cmd += ["--custom-proxy", proxy]
         else:
@@ -296,9 +342,9 @@ class Downloader:
 
         try:
             subprocess.run(cmd, check=True)
-            files = list(Path(out_dir).glob(f"{re_name}*"))
-            if files:
-                track._location = str(files[0])
+            resolved = self._resolve_output(out_dir, re_name)
+            if resolved:
+                track._location = resolved
             else:
                 raise IOError("ISM download produced no file")
         except Exception as e:
