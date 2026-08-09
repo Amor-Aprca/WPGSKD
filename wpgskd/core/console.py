@@ -91,3 +91,6 @@ class ConsoleUI:
             if flag_str:
                 parts.append(flag_str)
             log.info(" | ".join(parts))
+
+        for c in (tracks.chapters or []):
+            log.info(str(c))
