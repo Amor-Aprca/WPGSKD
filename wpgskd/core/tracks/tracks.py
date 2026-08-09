@@ -527,6 +527,14 @@ class Tracks:
             
         self.subtitles = subs           
     
+    def export_chapters(self, to_file: str = None) -> str:
+        data = "\n".join(map(repr, self.chapters))
+        if to_file:
+            os.makedirs(os.path.dirname(to_file) or ".", exist_ok=True)
+            with open(to_file, "w", encoding="utf-8") as fd:
+                fd.write(data)
+        return data
+
     @staticmethod
     def from_mpd(*args, **kwargs):
         from wpgskd.core.manifests.dash import parse as parse_mpd
