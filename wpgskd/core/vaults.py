@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, Tuple, List, Type
 
-from wpgskd.core.vault import BaseVault, LocalVault, HTTPAPIVault
+from wpgskd.core.vault import BaseVault, LocalVault, HTTPAPIVault, HTTPVault
 
 log = logging.getLogger("Vaults")
 
@@ -9,6 +9,7 @@ class Vaults:
     VAULT_TYPES = {
         "local": LocalVault,
         "httpapi": HTTPAPIVault,
+        "http": HTTPVault,
     }
 
     def __init__(self, vaults_list: list, service: str):
