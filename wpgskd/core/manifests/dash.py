@@ -364,10 +364,11 @@ def _parse_mpd(root, url, source, session):
                             ), None),
                             descriptive=any(
                                 (x.get("schemeIdUri") == "urn:mpeg:dash:role:2011"
-                                 and x.get("value") == "description")
+                                 and x.get("value") in ("description", "alternate", "commentary"))
                                 or (x.get("schemeIdUri") == "urn:tva:metadata:cs:AudioPurposeCS:2007"
                                     and x.get("value") == "1")
-                                for x in adaptation_set.findall("Accessibility")
+                                for x in (adaptation_set.findall("Accessibility")
+                                          + adaptation_set.findall("Role"))
                             ),
                             atmos=any(
                                 prop.get("schemeIdUri") == "tag:dolby.com,2018:dash:EC3_ExtensionType:2018"
@@ -599,25 +600,40 @@ def _merge_periods(period_tracks_list, source, log):
 
         for audio in period_tracks.audios:
             lang = str(audio.language) if audio.language else "und"
-            if lang not in seen_audios:
+            rep_id = getattr(audio, 'mpd_representation_id', None)
+            descriptive = getattr(audio, 'descriptive', False)
+            codec = audio.codec or ""
+            bitrate = audio.bitrate or 0
+            if rep_id:
+                key = rep_id
+            else:
+                key = f"{lang}_{codec}_{bitrate}_{'d' if descriptive else 'n'}"
+
+            if key not in seen_audios:
                 new_audio = audio
                 new_audio.url = []
-                seen_audios[lang] = new_audio
+                seen_audios[key] = new_audio
 
             if isinstance(audio.url, list):
-                seen_audios[lang].url.extend(audio.url)
+                seen_audios[key].url.extend(audio.url)
             else:
-                seen_audios[lang].url.append(audio.url)
+                seen_audios[key].url.append(audio.url)
 
         for sub in period_tracks.subtitles:
             lang = str(sub.language) if sub.language else "und"
             sub_type = "forced" if sub.forced else "sdh" if sub.sdh else "normal"
-            key = f"{lang}_{sub_type}"
+            rep_id = getattr(sub, 'mpd_representation_id', None)
+            key = rep_id or f"{lang}_{sub_type}"
 
             if key not in seen_subs:
-                seen_subs[key] = sub
-                if not isinstance(seen_subs[key].url, list):
-                    seen_subs[key].url = [seen_subs[key].url]
+                new_sub = sub
+                new_sub.url = []
+                seen_subs[key] = new_sub
+
+            if isinstance(sub.url, list):
+                seen_subs[key].url.extend(sub.url)
+            else:
+                seen_subs[key].url.append(sub.url)
 
     combined.videos = list(seen_videos.values())
     combined.audios = list(seen_audios.values())
@@ -628,3 +644,4 @@ def _merge_periods(period_tracks_list, source, log):
               f"{len(combined.subtitles)} subtitle tracks")
 
     return combined
+
