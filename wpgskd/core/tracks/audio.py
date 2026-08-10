@@ -52,7 +52,7 @@ class AudioTrack(Track):
         if codec_str in AUDIO_CODEC_MAP:
             display_name = AUDIO_CODEC_MAP[codec_str]
         elif "ec-3" in codec_lower or "eac3" in codec_lower:
-            display_name = "DDP"
+            display_name = "DD+"
         elif "ac-3" in codec_lower or "ac3" in codec_lower:
             display_name = "DD"
         elif "mp4a" in codec_lower or "aac" in codec_lower:
