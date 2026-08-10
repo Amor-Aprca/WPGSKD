@@ -68,7 +68,7 @@ straightforward to add support for new content sources.
 
 ### Key Management
 - **Local vault**: SQLite-based, multi-table (one per service), thread-safe via AtomicSQL
-- **Remote vaults**: HTTP API and Vinetrimmer-style HTTP (read/write) support
+- **Remote vaults**: HTTP API and HTTP (read/write) support
 - **Automatic caching**: resolved keys are stored for future use across all configured vaults
 - **Import/export**: batch key import, vault merging, migration tools
 
