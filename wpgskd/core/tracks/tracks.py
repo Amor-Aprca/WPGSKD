@@ -293,35 +293,87 @@ class Tracks:
 
     def sort_videos(self, by_language: Optional[List[str]] = None):
         if not self.videos: return
+
         def range_priority(x):
-            if getattr(x, 'dv', False): return 4
-            if getattr(x, 'hdr10', False) or getattr(x, 'dvhdr', False): return 3
-            if getattr(x, 'hlg', False): return 1
-            return 2 # SDR
-        self.videos.sort(key=lambda x: (range_priority(x), float(x.bitrate or 0.0)), reverse=True)
+            if getattr(x, 'hlg', False): return 5
+            if getattr(x, 'dv', False) and not getattr(x, 'dvhdr', False): return 4
+            if getattr(x, 'dvhdr', False): return 3                                    
+            if getattr(x, 'hdr10', False): return 2                                   
+            return 1                                                                   
+
+        def codec_priority(x):
+            raw = (x.codec or "").lower()
+            if "av01" in raw or raw == "av1": return 4
+            if "vp09" in raw or raw == "vp9": return 3
+            if any(k in raw for k in ["hev", "hvc", "dvh", "h265"]): return 2
+            if any(k in raw for k in ["avc", "h264"]): return 1
+            return 0
+
+        self.videos.sort(
+            key=lambda x: (
+                range_priority(x),
+                codec_priority(x),
+                x.height or 0,
+                float(x.bitrate or 0.0),
+            ),
+            reverse=True,
+        )
 
     def sort_audios(self, by_language: Optional[List[str]] = None):
         if not self.audios: return
-        self.audios.sort(key=lambda x: float(x.bitrate or 0.0), reverse=True)
-        self.audios.sort(key=lambda x: "" if x.descriptive else str(x.language))
 
-        if by_language:
-            for lang in reversed(by_language):
-                if str(lang) == "all":
-                    lang = next((x.language for x in self.audios if x.is_original_lang), "")
-                if not lang: continue
-                self.audios.sort(key=lambda x: "" if is_close_match(lang, [x.language]) else str(x.language))
+        _CODEC_PRI = {
+            "truehd atmos": 12, "truehd": 11,
+            "dts-hd.ma": 10, "flac": 9, "dts-hd": 8, "dts": 7,
+            "dd+ atmos": 6, "dd+": 5, "dd": 4,
+            "opus": 3, "aac": 2,
+        }
+
+        def _codec_key(track):
+            disp = (track.get_codec_display() or "").lower()
+            for name, pri in _CODEC_PRI.items():
+                if name in disp:
+                    return pri
+            return 1
+
+        def _ch_key(channels):
+            try:
+                return float(str(channels).split("/")[0])
+            except Exception:
+                return 0.0
+
+        def _lang_key(lang):
+            s = str(lang).lower()
+            parts = s.split("-", 1)
+            base = parts[0]
+            subtag = parts[1] if len(parts) > 1 else ""
+            is_num = 1 if (subtag and subtag[0].isdigit()) else 0
+            return (base, is_num, subtag)
+
+        self.audios.sort(key=lambda x: float(x.bitrate or 0.0), reverse=True)   
+        self.audios.sort(key=lambda x: _ch_key(x.channels), reverse=True)       
+        self.audios.sort(key=lambda x: _codec_key(x), reverse=True)             
+        self.audios.sort(key=lambda x: 1 if x.descriptive else 0)        
+        self.audios.sort(key=lambda x: _lang_key(x.language))                  
                 
     def sort_subtitles(self, by_language: Optional[List[str]] = None):
         if not self.subtitles: return
-        self.subtitles.sort(key=lambda x: str(x.language) + ("-cc" if x.cc else "") + ("-sdh" if x.sdh else ""))
-        self.subtitles.sort(key=lambda x: not x.forced)
-        if by_language:
-            for lang in reversed(by_language):
-                if str(lang) == "all":
-                    lang = next((x.language for x in self.subtitles if x.is_original_lang), "")
-                if not lang: continue
-                self.subtitles.sort(key=lambda x: "" if is_close_match(lang, [x.language]) else str(x.language))
+
+        def _sub_type_key(sub):
+            if sub.forced: return 2
+            if sub.sdh or sub.cc: return 1
+            return 0
+
+        def _sub_lang_key(lang):
+            s = str(lang).lower()
+            parts = s.split("-", 1)
+            base = parts[0]
+            subtag = parts[1] if len(parts) > 1 else ""
+            is_num = 1 if (subtag and subtag[0].isdigit()) else 0
+            return (base, is_num, subtag)
+
+        self.subtitles.sort(key=lambda x: _sub_type_key(x))             
+        self.subtitles.sort(key=lambda x: _sub_lang_key(x.language))   
 
     def sort_chapters(self):
         if not self.chapters: return
