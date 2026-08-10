@@ -329,18 +329,23 @@ class Tracks:
 
     def select_videos(self, by_quality=None, by_vbitrate=None, by_range=None, one_only=True, by_worst=False, by_codec=None):
         videos = self.videos
-        if by_quality:
-            q_videos = [x for x in videos if x.height == by_quality]
-            if not q_videos: q_videos = [x for x in videos if int(x.width * (9/16)) == by_quality]
-            if not q_videos and by_quality == "SD": q_videos = [x for x in videos if (x.width, x.height) < (1024, 576)]
-            if not q_videos and by_quality == "HD720": q_videos = [x for x in videos if (x.width, x.height) < (1482, 620)]
-            if not q_videos: raise ValueError(f"No {by_quality}p video track.")
-            videos = q_videos
-            
-        if by_vbitrate:
-            videos = [x for x in videos if int(x.bitrate or 0) <= int(by_vbitrate * 1001)]
-        if by_worst:
-            videos.sort(key=lambda x: float(x.bitrate or 0.0))
+
+        if by_range:
+            target_range = by_range.upper()
+            if target_range == "DV+HDR":
+                videos = [x for x in videos if getattr(x, 'dv', False) and getattr(x, 'hdr10', False)]
+            elif target_range == "DV":
+                videos = [x for x in videos if getattr(x, 'dv', False) and not getattr(x, 'dvhdr', False)]
+            elif target_range == "HDR10":
+                videos = [x for x in videos if getattr(x, 'hdr10', False) and not getattr(x, 'dv', False)]
+            elif target_range == "HLG":
+                videos = [x for x in videos if getattr(x, 'hlg', False)]
+            elif target_range == "SDR":
+                videos = [x for x in videos if not x.hdr10 and not x.dv and not x.hlg and not getattr(x, 'dvhdr', False)]
+            else:
+                raise ValueError(f"Unsupported range: {by_range}")
+            if not videos: raise ValueError(f"No {by_range} video track.")
+
         if by_codec:
             target = by_codec.upper()
             c_videos = []
@@ -359,23 +364,31 @@ class Tracks:
                 if std == target: c_videos.append(x)
             if not c_videos: raise ValueError(f"No {by_codec} video tracks.")
             videos = c_videos
-        if by_range:
-            target_range = by_range.upper()
-            if target_range == "DV+HDR":
-                videos = [x for x in videos if getattr(x, 'dv', False) and getattr(x, 'hdr10', False)]
-            elif target_range == "DV":
-                videos = [x for x in videos if getattr(x, 'dv', False)]
-            elif target_range == "HDR10":
-                videos = [x for x in videos if getattr(x, 'hdr10', False) and not getattr(x, 'dv', False)]
-            elif target_range == "HLG":
-                videos = [x for x in videos if getattr(x, 'hlg', False)]
-            elif target_range == "SDR":
-                videos = [x for x in videos if not x.hdr10 and not x.dv and not x.hlg and not getattr(x, 'dvhdr', False)]
+
+        if by_quality:
+            if by_quality == "SD":
+                q_videos = [x for x in videos if (x.width, x.height) < (1024, 576)]
+            elif by_quality == "HD720":
+                q_videos = [x for x in videos if (x.width, x.height) < (1482, 620)]
             else:
-                raise ValueError(f"Unsupported range: {by_range}")
-                
-            if not videos: raise ValueError(f"No {by_range} video track.")
-            
+                q = int(by_quality)
+                q_videos = [x for x in videos if x.height == q]
+                if not q_videos:
+                    q_videos = [x for x in videos if int((x.width or 0) * (9 / 16)) == q]
+                if not q_videos:
+                    with_height = [x for x in videos if x.height]
+                    if with_height:
+                        closest_h = min(with_height, key=lambda x: abs((x.height or 0) - q)).height
+                        q_videos = [x for x in with_height if x.height == closest_h]
+            if not q_videos: raise ValueError(f"No {by_quality}p video track.")
+            videos = q_videos
+
+        if by_vbitrate:
+            videos = [x for x in videos if int(x.bitrate or 0) <= int(by_vbitrate * 1001)]
+
+        if by_worst:
+            videos.sort(key=lambda x: float(x.bitrate or 0.0))
+
         if one_only and videos:
             self.videos = [videos[0]]
         else:
@@ -526,7 +539,7 @@ class Tracks:
             subs = [x for x in subs if not x.forced]
             
         self.subtitles = subs           
-    
+
     def export_chapters(self, to_file: str = None) -> str:
         data = "\n".join(map(repr, self.chapters))
         if to_file:
