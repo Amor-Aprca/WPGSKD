@@ -64,7 +64,7 @@ class ConsoleUI:
             lang_str = str(a.language)
             
             desc_str = " (Descriptive)" if a.descriptive else ""
-            orig_str = " [Original]" if a.is_original_lang else ""
+            orig_str = " [Original]" if (a.is_original_lang and not a.descriptive) else ""
             
             dur_sec = a.duration_seconds()
             size_bytes = a.size if a.size else a.computed_size_bytes()
