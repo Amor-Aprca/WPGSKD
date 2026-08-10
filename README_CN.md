@@ -74,7 +74,7 @@ WPGSKD 是一个高度模块化的 **流媒体处理框架**，围绕统一管�
 
 ### 🔄 密钥保险库
 ```
-查询链：Local (SQLite) → HTTP API → Vinetrimmer HTTP
+查询链：Local (SQLite) →    HTTP API →    HTTP
            ↑ 命中即返回      ↑ 回写缓存      ↑ 远程读写
 ```
 - 自动缓存已解析的密钥，减少重复请求
