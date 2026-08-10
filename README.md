@@ -1,4 +1,4 @@
-<div align="center">
+<div align="left">
 
 **English** | [简体中文](./README_CN.md)
 
