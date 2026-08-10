@@ -7,11 +7,12 @@ import sys
 
 # Add path to import AtomicSQL
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from wpgskd.utils.AtomicSQL import AtomicSQL
+from wpgskd.core.atomic_sql import AtomicSQL
 
 """
 Merge multiple Key Store DBs into one.
 Correctly handles multi-table structure (one table per service).
+Dynamically handles missing 'title' columns in input DB.
 """
 
 parser = argparse.ArgumentParser(
@@ -58,10 +59,6 @@ for table in tables:
     print(f"\nProcessing table: {table}...")
     
     # 2. Ensure table exists in output DB
-    # We copy the schema from input if it doesn't exist in output
-    # But standard vault schema is: id, kid, key_, title
-    # To support 'type' column in future, we should check input columns
-    
     # Get columns from input table
     input_cols_info = input_db.safe_execute(
         input_id,
@@ -77,8 +74,6 @@ for table in tables:
     
     if not out_table_exists:
         print(f"  - Creating table {table} in output DB...")
-        # Standard creation from vaults.py, but let's try to be dynamic if we want 'type' support later
-        # For now, stick to standard schema to ensure compatibility with wpgskd
         output_db.safe_execute(
             output_id,
             lambda db, cursor: cursor.execute(
@@ -94,16 +89,26 @@ for table in tables:
                 """
             )
         )
-        # If input has 'type' column, we might want to add it? 
-        # Let's handle Requirement 2 separately.
 
-    # 3. Fetch all rows from input table
+    # 3. Fetch all rows from input table dynamically (handle missing title)
+    has_title = "title" in input_cols
+    
+    if has_title:
+        select_query = f"SELECT kid, key_, title FROM `{table}`"
+    else:
+        select_query = f"SELECT kid, key_ FROM `{table}`"
+        print(f"  - Notice: No 'title' column in source table '{table}', defaulting to None.")
+
     rows = input_db.safe_execute(
         input_id,
-        lambda db, cursor: cursor.execute(f"SELECT kid, key_, title FROM `{table}`")
+        lambda db, cursor: cursor.execute(select_query)
     ).fetchall()
     
-    for kid, key, title in rows:
+    for row in rows:
+        kid = row[0]
+        key = row[1]
+        title = row[2] if has_title else None
+        
         # Check existence in output
         exists = output_db.safe_execute(
             output_id,
@@ -125,7 +130,6 @@ for table in tables:
                     )
                 )
                 total_updated += 1
-                # print(f"    Updated {kid}")
             else:
                 total_skipped += 1
         else:
@@ -138,7 +142,7 @@ for table in tables:
                 )
             )
             total_added += 1
-            print(f"    Added {kid}")
+            # print(f"    Added {kid}")
 
 output_db.commit(output_id)
 
