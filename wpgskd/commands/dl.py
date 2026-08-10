@@ -215,7 +215,7 @@ def result(service, quality, vcodec, acodec, range_, wanted, alang, slang,
         title.tracks.sort_chapters()
         
         for track in title.tracks:
-            track.is_original_lang = track.language == title.original_lang
+            track.is_original_lang = track.language == title.original_lang and not getattr(track, 'descriptive', False)
 
         if not list(title.tracks):
             log.error(" - No tracks returned!")
